@@ -108,18 +108,26 @@ contract BigBank is Bank {
 
 // Admin 合约
 contract Admin {
+    address private admin; // 管理员
     IBank public bank; // Bank 合约
 
     // 构造函数 设置合约地址是Bank还是BigBank
-    constructor(address bankAddress) {
+    constructor(address _admin, address bankAddress) {
+        admin = _admin;
         bank = IBank(bankAddress);
+    }
+
+    // 仅admin可以调用
+    modifier onlyAdmin() {
+        require(admin == msg.sender, "Only administrators can call this function");
+        _;
     }
     
     /**
      * 前提: 先将 BigBank 的管理员转移给 Admin 合约
      * 调用 BigBank 合约的 withdraw()
      */
-    function withdraw() external {
+    function withdraw() external onlyAdmin {
         bank.adminWithdraw();
     }
 
