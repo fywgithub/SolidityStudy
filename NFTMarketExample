@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+// 导入 Hardhat 的 console.log
+import "hardhat/console.sol";
+
+// 导入 OpenZeppelin 提供的 ERC721 标准合约
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+// 导入 OpenZeppelin 提供的 ERC20 标准合约
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+// ERC721 NFT 合约
+contract MyNFT is ERC721 {
+    uint256 private _tokenIdCounter = 0;
+
+    // 存储TokenURI
+    mapping(uint256 tokenId => string) private _tokenURIs;
+
+    constructor() ERC721("WynnNFT", "WYNN") {}
+
+    // 铸造NFT
+    function safeMint(address _to, string memory _uri) external payable returns (uint256 tokenId_) {
+        uint256 tokenId = _tokenIdCounter;
+        _tokenIdCounter ++;
+
+        console.log("tokenId: ", tokenId);
+        _mint(_to, tokenId);
+        _tokenURIs[tokenId] = _uri;
+
+        return tokenId;
+    }
+
+    // 查询 NFT URI
+    function tokenURI(uint256 tokenId) public view override returns (string memory) {
+        return _tokenURIs[tokenId];
+    }
+}
+
+// ERC20 合约
+contract MyToken is ERC20 {
+    // 构造函数将初始化 ERC20 供应量和代币名称
+    constructor(uint256 initialSupply) ERC20("MyERC20", "MERC20") {
+        // 通过 _mint 函数铸造初始供应量的代币到部署合约的地址
+        _mint(msg.sender, initialSupply);
+    }
+
+    // 扩展 ERC20 转账
+    function tokensReceived() public payable returns (bool) {
+
+        return true;
+    }
+}
+
+// NFTMarket 合约
+contract NFTMarket {
+
+    mapping(uint256 => uint256) public nftPrice; // 存储 NFT tokenId => price
+    mapping(uint256 => address) public nftOwner; // 存储 NFT tokenId => owner
+
+    // 上架 NFT
+    function list(address nftAddress, uint256 tokenId, uint256 price) public payable returns (bool) {
+        require(nftAddress != address(0), "Invalid token address");
+
+        // 首先用户需要授权给合约
+        // 从用户转账到合约
+        MyNFT(nftAddress).transferFrom(msg.sender, address(this), tokenId);
+
+        // 更新信息
+        nftPrice[tokenId] = price;   // 存储价格
+        nftOwner[tokenId] = msg.sender; // 存储所有者
+
+        return true;
+    }
+
+    // 购买 NFT
+    function buyNFT(address tokenAddress, address nftAddress, uint256 tokenId) public payable returns (bool) {
+        address owner = nftOwner[tokenId]; // 所有者
+        uint256 price = nftPrice[tokenId]; // 价格
+
+        // 首先用户需要授权给合约
+        // 从用户转账 ERC20 到 NFT 所有者
+        MyToken(tokenAddress).transferFrom(msg.sender, owner, price);
+        // 将 NFT 转移给购买者
+        MyNFT(nftAddress).transferFrom(address(this), msg.sender, tokenId);
+
+        // 更新信息
+        delete nftPrice[tokenId];  // 删除价格
+        delete nftOwner[tokenId]; // 删除所有者
+
+        return true;
+    }
+}
